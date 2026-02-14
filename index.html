@@ -70,6 +70,7 @@
         input[type="text"],
         input[type="tel"],
         input[type="date"],
+        input[type="password"],
         select {
             width: 100%;
             padding: 15px;
@@ -152,6 +153,34 @@
             background: #999999;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .btn-delete {
+            width: 100%;
+            padding: 12px;
+            background: #444444;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85em;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .btn-delete:hover {
+            background: #666666;
+        }
+
+        .admin-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e0e0e0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .admin-panel.show {
+            display: block;
         }
 
         .notification {
@@ -252,6 +281,15 @@
 
                 <button type="submit" class="btn-submit">Konfirmasi Booking</button>
             </form>
+
+            <!-- Tombol Admin (tersembunyi) -->
+            <button onclick="toggleAdmin()" class="btn-delete">⚙️ Admin Panel</button>
+            
+            <div class="admin-panel" id="adminPanel">
+                <label>Masukkan Password:</label>
+                <input type="password" id="adminPass" placeholder="Password admin">
+                <button onclick="hapusDataTest()" class="btn-delete" style="margin-top: 10px; background: #cc0000;">🗑️ Hapus Semua Data</button>
+            </div>
         </div>
     </div>
 
@@ -261,6 +299,7 @@
         // Konfigurasi
         const STORAGE_KEY = 'toekang_tjukur_bookings';
         const ADMIN_WHATSAPP = '6285647090054';
+        const ADMIN_PASSWORD = 'tjukur123'; // GANTI PASSWORD INI
         
         // Inisialisasi Broadcast Channel untuk sync real-time
         const bc = new BroadcastChannel('booking_channel');
@@ -283,8 +322,31 @@
         // Simpan data booking ke localStorage
         function saveBookings(bookings) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
-            // Broadcast ke tab/browser lain
             bc.postMessage({type: 'update', bookings: bookings});
+        }
+
+        // Toggle admin panel
+        function toggleAdmin() {
+            const panel = document.getElementById('adminPanel');
+            panel.classList.toggle('show');
+        }
+
+        // Hapus data test dengan password
+        function hapusDataTest() {
+            const pass = document.getElementById('adminPass').value;
+            
+            if (pass !== ADMIN_PASSWORD) {
+                showNotification('Password salah!', 'error');
+                return;
+            }
+            
+            if (confirm('Yakin mau hapus semua data booking?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                bc.postMessage({type: 'update', bookings: []});
+                renderTimeSlots();
+                document.getElementById('adminPass').value = '';
+                showNotification('Data test berhasil dihapus!');
+            }
         }
 
         // Render time slots
@@ -301,7 +363,6 @@
                 slot.className = 'time-slot';
                 slot.textContent = time;
                 
-                // Cek apakah jam sudah dibooking untuk tanggal yang dipilih
                 const isBooked = bookings.some(b => 
                     b.tanggal === selectedDate && b.jam === time
                 );
@@ -352,7 +413,6 @@
                 return;
             }
             
-            // Cek double booking
             const bookings = getBookings();
             const isDoubleBooked = bookings.some(b => 
                 b.tanggal === tanggal && b.jam === jam
@@ -376,7 +436,6 @@
             bookings.push(bookingData);
             saveBookings(bookings);
             
-            // Buat pesan WA
             const pesan = `Halo Admin Toekang Tjukur, saya ingin booking:%0A%0A` +
                          `*Nama:* ${nama}%0A` +
                          `*WhatsApp:* ${whatsapp}%0A` +
@@ -386,7 +445,6 @@
             
             const waLink = `https://wa.me/${ADMIN_WHATSAPP}?text=${pesan}`;
             
-            // Redirect ke WhatsApp
             window.location.href = waLink;
         });
 
@@ -394,20 +452,19 @@
         bc.onmessage = (event) => {
             if (event.data.type === 'update') {
                 renderTimeSlots();
-                showNotification('Data booking diperbarui!', 'success');
             }
         };
 
         // Set minimum date ke hari ini
         document.getElementById('tanggal').min = new Date().toISOString().split('T')[0];
         
-        // Event listener untuk perubahan tanggal
+        // Event listener
         document.getElementById('tanggal').addEventListener('change', renderTimeSlots);
         
         // Inisialisasi
         renderTimeSlots();
         
-        // Auto refresh setiap 5 detik untuk cek update
+        // Auto refresh setiap 5 detik
         setInterval(renderTimeSlots, 5000);
     </script>
 </body>
